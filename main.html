@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLE Read and Write Example - Electrify Energy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #bdc9ce;
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: #9c8e8ea1; /* Blue tone header color */
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header img {
+            width: 220px; /* Increased logo size */
+            height: auto;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+            display: inline-block;
+            color: #000000;
+        }
+
+        #scanBtn {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 250px;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+
+        #scanBtn:hover {
+            background-color: #218838;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            font-size: 20px;
+        }
+
+        /* Flexbox layout for buttons and output side by side */
+        #contentWrapper {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        #inputField {
+            display: flex;
+            flex-direction: column;
+            width: 45%;
+        }
+
+        .receivedDataOutput {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #333;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            width: 100%;
+            display: none; /* Initially hidden */
+        }
+
+        button {
+            background-color: #2a8ffc;
+            color: rgb(255, 255, 255);
+            padding: 14px 22px;
+            border: 1vmin;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 8px 0;
+            width: 100%;
+            max-width: 250px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #00b300;
+        }
+
+        /* Responsive Layout */
+        @media (max-width: 768px) {
+            #inputField, #receivedData {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #inputField, #receivedData {
+                width: 100%;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <img src="logo.png" alt="Electrify Energy Logo"> <!-- Replace with your logo -->
+        <h1>ELECTRIFY ENERGY PRIVATE LIMITED</h1>
+    </header>
+
+    <main style="padding: 30px;">
+        <div style="text-align: center;">
+            <button id="scanBtn">Scan for BLE Devices</button>
+            <div id="status">Status: Not connected</div>
+        </div>
+
+        <!-- Flex container for buttons and output -->
+        <div id="contentWrapper">
+            <div id="inputField">
+                <!-- Buttons for BLE Commands -->
+                <div class="buttonWithOutput">
+                    <button id="serialNumberBtn">
+                        <span class="btn-icon">🔢</span> Serial Number
+                    </button>
+                    <div id="serialNumberOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="pcbNumberBtn">
+                        <span class="btn-icon">🖥️</span> Read PCB Number
+                    </button>
+                    <div id="pcbNumberOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="memoryEraseBtn">
+                        <span class="btn-icon">🧹</span> Memory Erase
+                    </button>
+                    <div id="memoryEraseOutput" class="receivedDataOutput">OK</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="relayConnectBtn">
+                        <span class="btn-icon">🔒</span> Relay Connect
+                    </button>
+                    <div id="relayConnectOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="relayDisconnectBtn">
+                        <span class="btn-icon">🔓</span> Relay Disconnect
+                    </button>
+                    <div id="relayDisconnectOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="firmwareVersionBtn">
+                        <span class="btn-icon">⚙️</span> Firmware Version
+                    </button>
+                    <div id="firmwareVersionOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="simIccidBtn">
+                        <span class="btn-icon">📡</span> SIM ICCID
+                    </button>
+                    <div id="simIccidOutput" class="receivedDataOutput">None</div>
+                </div>
+                <div class="buttonWithOutput">
+                    <button id="simImeiBtn">
+                        <span class="btn-icon">📡</span> SIM IMEI
+                    </button>
+                    <div id="simImeiOutput" class="receivedDataOutput">None</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const scanButton = document.getElementById("scanBtn");
+        const statusDiv = document.getElementById("status");
+
+        // Button and Output Mapping
+        const buttons = {
+            serialNumberBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x67, 0x73, 0x72, 0x23, 0x0D],
+                outputId: "serialNumberOutput"
+            },
+            pcbNumberBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x67, 0x70, 0x63, 0x62, 0x23, 0x0D],
+                outputId: "pcbNumberOutput"
+            },
+            memoryEraseBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x6D, 0x65, 0x72, 0x23, 0x0D],
+                outputId: "memoryEraseOutput"
+            },
+            relayConnectBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x6D, 0x72, 0x65, 0x6C, 0x61, 0x79, 0x6F, 0x6E, 0x23, 0x0D],
+                outputId: "relayConnectOutput"
+            },
+            relayDisconnectBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x6D, 0x72, 0x65, 0x6C, 0x61, 0x79, 0x6F, 0x66, 0x66, 0x23, 0x0D],
+                outputId: "relayDisconnectOutput"
+            },
+            firmwareVersionBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x4D, 0x46, 0x57, 0x56, 0x65, 0x72, 0x23, 0x23, 0x0D, 0x0A],
+                outputId: "firmwareVersionOutput"
+            },
+            simIccidBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x52, 0x44, 0x49, 0x43, 0x43, 0x49, 0x44, 0x23, 0x0D, 0x0A],
+                outputId: "simIccidOutput"
+            },
+            simImeiBtn: {
+                command: [0x24, 0x45, 0x45, 0x50, 0x52, 0x44, 0x49, 0x4D, 0x45, 0x49, 0x23, 0x0D, 0x0A],
+                outputId: "simImeiOutput"
+            }
+        };
+
+        let currentDevice;
+        let currentServer;
+        let readCharacteristic;
+        let writeCharacteristic;
+
+        const SERVICE_UUID = 'f000c0c0-0451-4000-b000-000000000000';
+        const READ_CHARACTERISTIC_UUID = 'f000c0c2-0451-4000-b000-000000000000';
+        const WRITE_CHARACTERISTIC_UUID = 'f000c0c1-0451-4000-b000-000000000000';
+
+        // Function to start scanning for BLE devices
+        async function scanAndConnect() {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                currentDevice = device;
+                statusDiv.textContent = `Found device: ${device.name || 'Unnamed device'}`;
+
+                currentServer = await device.gatt.connect();
+                const service = await currentServer.getPrimaryService(SERVICE_UUID);
+                readCharacteristic = await service.getCharacteristic(READ_CHARACTERISTIC_UUID);
+                writeCharacteristic = await service.getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+
+                statusDiv.textContent = `Connected to ${device.name || 'Unnamed device'}`;
+
+                if (readCharacteristic.startNotifications) {
+                    await readCharacteristic.startNotifications();
+                    readCharacteristic.addEventListener('characteristicvaluechanged', handleReceivedData);
+                }
+
+            } catch (error) {
+                console.error("Error during connection", error);
+                statusDiv.textContent = `Connection failed: ${error.message || error}`;
+            }
+        }
+
+        // Function to handle received data from the read characteristic
+        function handleReceivedData(event) {
+            const value = event.target.value;
+            const decoder = new TextDecoder();
+            const text = decoder.decode(value);
+            console.log('Received data:', text);
+
+            // Show the correct output for the button pressed
+            Object.keys(buttons).forEach(buttonId => {
+                const outputId = buttons[buttonId].outputId;
+                const outputElement = document.getElementById(outputId);
+                if (outputElement.style.display === 'block') {
+                    outputElement.textContent = text; // Update output
+                }
+            });
+        }
+
+        // Function to send a command to the BLE device
+        async function sendCommand(command, outputElementId) {
+            try {
+                const commandData = new Uint8Array(command);
+                await writeCharacteristic.writeValue(commandData);
+                console.log('Command sent:', command);
+
+                // Show the relevant output field for the current button and hide others
+                Object.keys(buttons).forEach(buttonId => {
+                    const outputId = buttons[buttonId].outputId;
+                    const outputElement = document.getElementById(outputId);
+                    outputElement.style.display = (outputId === outputElementId) ? 'block' : 'none';
+                });
+
+            } catch (error) {
+                console.error("Failed to send command", error);
+                statusDiv.textContent = `Failed to send command: ${error.message || error}`;
+            }
+        }
+
+        // Button event listeners for all commands
+        Object.keys(buttons).forEach(buttonId => {
+            document.getElementById(buttonId).addEventListener("click", () => {
+                sendCommand(buttons[buttonId].command, buttons[buttonId].outputId);
+            });
+        });
+
+        // Attach event listener to scan button
+        scanButton.addEventListener("click", () => {
+            statusDiv.textContent = "Scanning for devices...";
+            scanAndConnect();
+        });
+    </script>
+</body>
+</html>
